@@ -1,0 +1,46 @@
+# Exclude bin and lib directories
+bin/
+lib/
+share/
+out/
+
+# Exclude Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Exclude virtual environment
+env/
+venv/
+
+# Exclude IDE files
+.vscode/
+.idea/
+
+# Exclude logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Exclude compiled libraries
+*.so
+*.dll
+*.dylib
+*.exe
+
+# Exclude Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Exclude coverage reports
+htmlcov/
+.coverage
+coverage.xml
+
+# Exclude pytest cache
+.pytest_cache/
+
+# Exclude build artifacts
+build/
+dist/
+*.egg-info/
