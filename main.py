@@ -44,6 +44,7 @@ python text_analysis.py \
 
 """
 import os
+import json
 import argparse
 from nltk.probability import FreqDist
 import nltk
@@ -67,7 +68,7 @@ def preprocess_with_nltk(text):
     return [word.lower() for word in tokens if word.isalpha()]
 
 
-def preprocess_with_spacy(text, spacy_model="de_core_news_sm", include_abstracts=False):
+def preprocess_with_spacy(text, spacy_model="de_core_news_sm", include_abstracts=True):
     """
     Preprocess text using SpaCy by lemmatizing words and optionally extracting abstracts.
 
@@ -104,12 +105,13 @@ def preprocess_with_spacy(text, spacy_model="de_core_news_sm", include_abstracts
     nlp = spacy.load(spacy_model)
     doc = nlp(text)
 
-    if not include_abstracts:
-        return [token.lemma_.lower() for token in doc if token.is_alpha]
-    else:
-        # Dictionary to store words and their abstracts
-        word_abstracts = defaultdict(list)
+    # List to store lemmatized words
+    lemmatized_words = [token.lemma_.lower() for token in doc if token.is_alpha]
 
+    # Dictionary to store words and their abstracts
+    word_abstracts = defaultdict(list)
+
+    if include_abstracts:
         # Iterate through sentences in the text
         for sent in doc.sents:
             sent_text = sent.text
@@ -121,7 +123,8 @@ def preprocess_with_spacy(text, spacy_model="de_core_news_sm", include_abstracts
 
         # Ensure each word has unique abstracts
         word_abstracts = {word: list(set(abstracts)) for word, abstracts in word_abstracts.items()}
-        return word_abstracts
+
+    return lemmatized_words, word_abstracts
 
 
 def get_highest_frequency(freq_dist):
@@ -161,13 +164,14 @@ def save_results_to_file_(file_path, top_words, words_in_range):
             file.write(f"{word}: {freq}\n")
 
 
-def save_results_to_files(top_words, words_in_range, params, output_dir=DEFAULT_OUTPUT_REPO):
+def save_results_to_files(top_words, words_in_range, word_abstracts, params, output_dir=DEFAULT_OUTPUT_REPO):
     """
     Save the results to two separate files with auto-generated names.
 
     Args:
         output_dir (str): Directory where the output files will be saved.
         top_words (list of tuples): List of (word, frequency) for the top words.
+        word_abstracts (dict): Dictionary of lemmatized words and their abstracts.
         words_in_range (list of tuples): List of (word, frequency) for words in the frequency range.
         params (dict): Dictionary containing parameters for file naming. Keys include:
                     - 'max_words' (int): Maximum number of top words to include.
@@ -183,6 +187,7 @@ def save_results_to_files(top_words, words_in_range, params, output_dir=DEFAULT_
     # Generate file names
     top_words_file = os.path.join(output_dir, f"top_{params['max_words']}_words.txt")
     range_words_file = os.path.join(output_dir, f"words_in_range_{params['min_freq']}_{params['max_freq']}.txt")
+    abstracts_file = os.path.join(output_dir, f"abstracts_words_in_range_{params['min_freq']}_{params['max_freq']}.json")
 
     # Save top words by frequency to the first file
     with open(top_words_file, 'w', encoding='utf-8') as file:
@@ -196,7 +201,11 @@ def save_results_to_files(top_words, words_in_range, params, output_dir=DEFAULT_
         for word, freq in words_in_range:
             file.write(f"{word}: {freq}\n")
 
-    return top_words_file, range_words_file
+    # Save word abstracts to a JSON file
+    with open(abstracts_file, 'w', encoding='utf-8') as file:
+        json.dump(word_abstracts, file, ensure_ascii=False, indent=4)
+
+    return top_words_file, range_words_file, abstracts_file
 
 
 # Main Execution as CLI Application
@@ -239,7 +248,7 @@ def main():
         processed_words = preprocess_with_nltk(text)
     elif args.method == "spacy":
         print("Using SpaCy for text processing...")
-        processed_words = preprocess_with_spacy(text)
+        processed_words, word_abstracts = preprocess_with_spacy(text)
 
     # Calculate Frequency Distribution
     freq_dist = FreqDist(processed_words)
@@ -250,11 +259,12 @@ def main():
 
     top_words = get_top_words(freq_dist, args.max_words)
     words_in_range = get_words_in_range(freq_dist, args.min_freq, args.max_freq)
+    abstracts_words_in_range = {_w: word_abstracts[_w] for _w, _f in words_in_range}
 
     params = {'max_words': args.max_words, 'min_freq': args.min_freq, 'max_freq': args.max_freq}
 
     # Save Results to File
-    save_results_to_files(top_words, words_in_range, params)
+    save_results_to_files(top_words, words_in_range, abstracts_words_in_range, params)
     print(f"\nResults saved to {DEFAULT_OUTPUT_REPO}")
 
 if __name__ == "__main__":
